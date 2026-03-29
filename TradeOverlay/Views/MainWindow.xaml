@@ -1,0 +1,337 @@
+<Window x:Class="TradeOverlay.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:TradeOverlay.Converters"
+        Title="Trade Overlay"
+        Width="310"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="True">
+
+    <Window.Resources>
+        <conv:TradeCountColorConverter x:Key="TradeCountColor"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+        <conv:CurrencyConverter x:Key="Currency"/>
+        <conv:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVis"/>
+        <conv:PnLColorConverter x:Key="PnLColor"/>
+    </Window.Resources>
+
+    <Border CornerRadius="10"
+            Background="{StaticResource BackgroundBrush}"
+            BorderBrush="{StaticResource AppBorderBrush}"
+            BorderThickness="1"
+            Opacity="{Binding WindowOpacity}"
+            MouseLeftButtonDown="Border_MouseLeftButtonDown">
+
+        <StackPanel Margin="14,12,14,14">
+
+            <!-- ══ Title bar ══ -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.Column="0" Fill="Transparent" Cursor="SizeAll"
+                           MouseLeftButtonDown="Border_MouseLeftButtonDown"/>
+                <Button Grid.Column="1" Style="{StaticResource FlatButton}"
+                        Content="⚙" ToolTip="Settings" Margin="0,0,4,0"
+                        Click="Settings_Click"/>
+                <Button Grid.Column="2" Style="{StaticResource FlatButton}"
+                        Content="✕" Click="Close_Click"/>
+            </Grid>
+
+            <!-- ══ Mantra ══ -->
+            <TextBlock Text="SUCCESS = DISCIPLINE + RISK MANAGEMENT"
+                       FontFamily="{StaticResource HeaderFont}"
+                       FontSize="12"
+                       Foreground="{StaticResource GoldBrush}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       Margin="0,2,0,6"/>
+
+            <!-- ══ Checklist prompt ══ -->
+            <Border Background="{StaticResource SurfaceBrush}"
+                    CornerRadius="6" Padding="8,5" Margin="0,0,0,8">
+                <TextBlock Text="✅  Is the setup checklist met?"
+                           Foreground="{StaticResource GreenBrush}"
+                           FontSize="12" FontWeight="SemiBold"
+                           TextAlignment="Center"/>
+            </Border>
+
+            <!-- ══ Trade counter ══ -->
+            <Border Background="{StaticResource SurfaceBrush}"
+                    CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="TRADES TODAY"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <TextBlock FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0">
+                            <Run Text="Limit: "/><Run Text="{Binding MaxTrades, Mode=OneWay}"/>
+                        </TextBlock>
+                        <!-- Open / Closed split -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <Border Background="#1A3A2A" CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                    ToolTip="Completed round trips (buy + sell pairs)">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="✅ " FontSize="9"/>
+                                    <TextBlock Text="{Binding ClosedTradeCount}"
+                                               Foreground="{StaticResource GreenBrush}"
+                                               FontSize="9" FontWeight="Bold"/>
+                                    <TextBlock Text=" closed" Foreground="{StaticResource TextSecondaryBrush}" FontSize="9"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#2A2A1A" CornerRadius="3" Padding="5,2"
+                                    ToolTip="Open positions (entered but not yet exited)">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🟡 " FontSize="9"/>
+                                    <TextBlock Text="{Binding OpenTradeCount}"
+                                               Foreground="{StaticResource WarningBrush}"
+                                               FontSize="9" FontWeight="Bold"/>
+                                    <TextBlock Text=" open" Foreground="{StaticResource TextSecondaryBrush}" FontSize="9"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Blinking total counter -->
+                    <TextBlock Grid.Column="1"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontSize="36" FontWeight="Bold"
+                               Visibility="{Binding BlinkVisible, Converter={StaticResource BoolToVis}}">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0}">
+                                <Binding Path="TradeCount"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                        <TextBlock.Foreground>
+                            <MultiBinding Converter="{StaticResource TradeCountColor}">
+                                <Binding Path="TradeCount"/>
+                                <Binding Path="MaxTrades"/>
+                            </MultiBinding>
+                        </TextBlock.Foreground>
+                    </TextBlock>
+                </Grid>
+            </Border>
+
+            <!-- Trade limit exceeded banner -->
+            <Border Background="#33FF1744" CornerRadius="4" Padding="6,4" Margin="0,0,0,6"
+                    Visibility="{Binding IsOverLimit, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="⛔  TRADE LIMIT EXCEEDED"
+                           Foreground="{StaticResource DangerBrush}"
+                           FontWeight="Bold" FontSize="11" TextAlignment="Center"/>
+            </Border>
+
+            <!-- ══ P&L + Daily Loss Alert ══ -->
+            <Border CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDailyLossBreached}" Value="True">
+                                <Setter Property="Background" Value="#33FF1744"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="P &amp; L TODAY"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <!-- Loss limit warning — blinks when breached -->
+                        <TextBlock HorizontalAlignment="Right" FontSize="9" FontWeight="Bold"
+                                   Visibility="{Binding LossBlinkVisible, Converter={StaticResource BoolToVis}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value=""/>
+                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDailyLossBreached}" Value="True">
+                                            <Setter Property="Text" Value="🚨 LOSS LIMIT HIT"/>
+                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <Rectangle Height="1" Fill="{StaticResource AppBorderBrush}" Margin="0,4,0,6"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="4"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Realised"
+                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding RealisedPnL, Converter={StaticResource Currency}}"
+                                   FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                   Foreground="{Binding RealisedPnL, Converter={StaticResource PnLColor}}"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Unrealised"
+                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding UnrealisedPnL, Converter={StaticResource Currency}}"
+                                   FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                   Foreground="{Binding UnrealisedPnL, Converter={StaticResource PnLColor}}"/>
+
+                        <Separator Grid.Row="2" Grid.ColumnSpan="2"
+                                   Background="{StaticResource AppBorderBrush}" Margin="0,2"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="TOTAL P&amp;L"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontWeight="Bold" FontSize="12"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1"
+                                   Text="{Binding TotalPnL, Converter={StaticResource Currency}}"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontWeight="Bold" FontSize="12"
+                                   Foreground="{Binding TotalPnL, Converter={StaticResource PnLColor}}"/>
+                    </Grid>
+
+                    <!-- Max daily loss indicator -->
+                    <TextBlock FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,6,0,0">
+                        <Run Text="Max loss limit: "/>
+                        <Run Text="{Binding MaxDailyLoss, Converter={StaticResource Currency}, Mode=OneWay}"
+                             Foreground="{StaticResource DangerBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Session breakdown ══ -->
+            <Border Background="{StaticResource SurfaceBrush}"
+                    CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                <StackPanel>
+                    <TextBlock Text="SESSION BREAKDOWN (IST)"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                    <ItemsControl ItemsSource="{Binding SessionSlots}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Label}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="10" FontFamily="{StaticResource MonoFont}"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding TradeCount}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="10" FontWeight="Bold"
+                                               FontFamily="{StaticResource MonoFont}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Brokerage ══ -->
+            <Border Background="{StaticResource SurfaceBrush}"
+                    CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="BROKERAGE"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding ChargesSource}"
+                                   HorizontalAlignment="Right"
+                                   Foreground="{StaticResource GreenBrush}"
+                                   FontSize="9"/>
+                    </Grid>
+                    <Rectangle Height="1" Fill="{StaticResource AppBorderBrush}" Margin="0,4,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="4"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Brokerage" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TotalBrokerage, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="STT" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TotalStt, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Txn Charges" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TotalTransactionCharges, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="SEBI Charges" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TotalSebiCharges, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Stamp Duty" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TotalStampCharges, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="CGST (9%)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding TotalCgst, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="SGST (9%)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding TotalSgst, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="IGST (18%)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TotalIgst, Converter={StaticResource Currency}}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="{StaticResource MonoFont}"/>
+                        <Separator Grid.Row="8" Grid.ColumnSpan="2" Background="{StaticResource AppBorderBrush}" Margin="0,4"/>
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="TOTAL CHARGES"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontWeight="Bold" FontSize="12"/>
+                        <TextBlock Grid.Row="9" Grid.Column="1"
+                                   Text="{Binding GrandTotalCharges, Converter={StaticResource Currency}}"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   FontWeight="Bold" FontSize="12"
+                                   FontFamily="{StaticResource MonoFont}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Status bar ══ -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="10" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+                <Button Grid.Column="1" Style="{StaticResource FlatButton}"
+                        Content="↻ Refresh" FontSize="10"
+                        Command="{Binding RefreshCommand}"/>
+            </Grid>
+
+            <TextBlock Text="Loading…"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="10" TextAlignment="Center"
+                       Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
+                       Margin="0,4,0,0"/>
+
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOverlay", "TradeOverlay.csproj", "{38BACBD3-AF6E-26B8-A09A-839D24B36935}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{38BACBD3-AF6E-26B8-A09A-839D24B36935}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38BACBD3-AF6E-26B8-A09A-839D24B36935}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38BACBD3-AF6E-26B8-A09A-839D24B36935}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38BACBD3-AF6E-26B8-A09A-839D24B36935}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {67E2D070-A05A-4F0D-A37D-8FC91FD28AAC}
+	EndGlobalSection
+EndGlobal
