@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows.Threading;
 using TradeOverlay.Config;
 using TradeOverlay.Models;
@@ -23,6 +24,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private int _lastKnownTradeCount = -1;
     private bool _lossAlertFired;     // prevent repeated alert sounds per session
     private bool _tradeAlertFired;
+    private DateTime _tradeLogoutLastFired = DateTime.MinValue;  // cooldown between retries
+    private DateTime _lossLogoutLastFired  = DateTime.MinValue;
+    private static readonly TimeSpan LogoutCooldown = TimeSpan.FromMinutes(2);
+    private string? _logoutStatusMessage; // pinned after logout so normal refresh doesn't overwrite it
 
     // ── Observable Properties ─────────────────────────────────────────────────
 
@@ -157,7 +162,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // ── 3. Session breakdown ───────────────────────────────────────────
             UpdateSessionSlots(completed);
 
-            // ── 4. Trade limit alert ───────────────────────────────────────────
+            // ── 4. Trade limit alert + logout ─────────────────────────────────
             if (IsOverLimit && !_tradeAlertFired)
             {
                 _soundAlert.PlayTradeAlert();
@@ -166,8 +171,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             else if (!IsOverLimit)
                 _tradeAlertFired = false;
 
-            LastUpdated   = DateTime.Now;
-            StatusMessage = $"Updated {LastUpdated:HH:mm:ss}";
+            if (IsOverLimit && OpenTradeCount == 0 && DateTime.Now - _tradeLogoutLastFired > LogoutCooldown)
+            {
+                _tradeLogoutLastFired = DateTime.Now;
+                await TriggerKiteLogoutAsync("Trade limit exceeded");
+            }
+
+            LastUpdated = DateTime.Now;
+            // Don't overwrite the logout status — keep it visible until next settings change
+            StatusMessage = _logoutStatusMessage ?? $"Updated {LastUpdated:HH:mm:ss}";
         }
         catch (KiteServiceException ex)
         {
@@ -184,6 +196,32 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Opens kite.zerodha.com/logout in the default browser using the existing session.
+    /// Because UseShellExecute = true passes the URL to the OS shell, Chrome opens it
+    /// in the current profile with existing cookies, triggering Kite's logout flow.
+    /// </summary>
+    private Task TriggerKiteLogoutAsync(string reason)
+    {
+        KiteService.Log("BROWSER LOGOUT TRIGGERED", reason);
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName        = "https://kite.zerodha.com/logout",
+                UseShellExecute = true
+            });
+            _logoutStatusMessage = $"⛔ {reason} — Kite logout opened in browser";
+        }
+        catch (Exception ex)
+        {
+            KiteService.Log("BROWSER LOGOUT FAILED", ex.Message);
+            _logoutStatusMessage = $"⚠ {reason} — could not open logout: {ex.Message}";
+        }
+        StatusMessage = _logoutStatusMessage;
+        return Task.CompletedTask;
+    }
 
     /// <summary>Fetches positions + charges when order count has changed.</summary>
     private async Task RefreshPositionsAndChargesAsync(List<KiteOrder> completed)
@@ -263,6 +301,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
             else if (!IsDailyLossBreached)
                 _lossAlertFired = false;
+
+            if (IsDailyLossBreached && OpenTradeCount == 0 && DateTime.Now - _lossLogoutLastFired > LogoutCooldown)
+            {
+                _lossLogoutLastFired = DateTime.Now;
+                await TriggerKiteLogoutAsync("Daily loss limit exceeded");
+            }
         }
         catch (KiteServiceException ex)
         {
@@ -307,8 +351,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IsOverLimit   = TradeCount > MaxTrades;
         _kiteService.UpdateCredentials(_settings.ApiKey, _settings.AccessToken);
         _lastKnownTradeCount = -1;
-        _lossAlertFired  = false;
-        _tradeAlertFired = false;
+        _lossAlertFired       = false;
+        _tradeAlertFired      = false;
+        _tradeLogoutLastFired = DateTime.MinValue;
+        _lossLogoutLastFired  = DateTime.MinValue;
+        _logoutStatusMessage  = null;
     }
 
     public Task TriggerRefreshAsync() => RefreshAsync();
