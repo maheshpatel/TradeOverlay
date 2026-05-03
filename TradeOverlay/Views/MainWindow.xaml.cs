@@ -15,10 +15,12 @@ public partial class MainWindow : Window
         _vm = viewModel;
         DataContext = _vm;
 
-        // Restore last saved position
+        // Restore last saved position, clamping to the primary screen so the
+        // window doesn't land off-screen when a monitor is disconnected.
         var (left, top) = _vm.GetWindowPosition();
-        Left = left;
-        Top = top;
+        var screen = SystemParameters.WorkArea;
+        Left = Math.Clamp(left, screen.Left, screen.Right - Width);
+        Top  = Math.Clamp(top,  screen.Top,  screen.Bottom - 50);
 
         Loaded += async (_, _) => await _vm.RefreshAsync();
     }
